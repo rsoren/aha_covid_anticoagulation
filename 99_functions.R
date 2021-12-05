@@ -59,3 +59,70 @@ recode_variables <- function(dat, dat_new_variables, varnames) {
   return(df_out)
 }
 
+
+
+
+#####
+
+make_new_variables <- function(dat, dat_new_variables) {
+  if (FALSE) {
+    dat = df3
+    dat_new_variables = df_newvars2
+  }
+  
+  dat <- as.data.frame(dat)
+  dat_new_variables <- as.data.frame(dat_new_variables)
+  
+  if (any(dat$new_variable_name %in% c(NA, ""))) {
+    stop("'new_variable_name' cannot having missing or blank values")
+  }
+  # for (x in unique(dat_new_variables$new_variable_name)) {
+  for (i in 1:nrow(dat_new_variables)) {
+    if (FALSE) {
+      i <- 30
+    }
+    x <- dat_new_variables[i, "new_variable_name"]
+    try({
+      definition_tmp <- as.character(dat_new_variables[i, "definition"])
+      cat(paste0("\n", x, " = ", definition_tmp, "\n"))
+      
+      if (dat_new_variables[i, "rowwise"] == 1) {
+        dat <- dat %>% rowwise(.)
+      }
+      dat <- dat %>%
+        mutate(
+          tmpvar = eval(parse(text = definition_tmp)) ) %>%
+        as.data.frame(.)
+      
+      dat[, x] <- dat$tmpvar
+    })
+  }
+  
+  return(dat)
+}
+
+
+
+summarize_categorical <- function(dat, variable_tmp, label_tmp, notes_tmp, condition_tmp = NA) {
+  if (FALSE) {
+    dat <- df_in
+    # condition_tmp <- "Species != 'versicolor'"
+    condition_tmp <- "Species != 'versicolor' | is.na(Species)"
+    # condition_tmp <- NA
+    variable_tmp <- "Species"
+    label_tmp <- "tmp label"
+    notes_tmp <- "tmp notes"
+  }
+  require(dplyr)
+  if (!is.na(condition_tmp)) dat <- filter(dat, eval(parse(text = condition_tmp)))
+  tbl_tmp <- table(as.data.frame(dat)[, as.character(variable_tmp)], useNA = "ifany")
+  df_out <- as.data.frame(tbl_tmp) %>%
+    mutate(variable = variable_tmp, label = label_tmp, notes = notes_tmp, condition = condition_tmp) %>%
+    select(variable, level = Var1, count = Freq, condition, label, notes)
+  return(df_out)
+}
+
+
+
+
+
