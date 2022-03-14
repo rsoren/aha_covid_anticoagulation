@@ -17,7 +17,7 @@ recode_variables <- function(dat, dat_new_variables, varnames) {
   
   newdat_tmp <- sapply(new_analytic_vars, function(newvar) {
     if (FALSE) {
-      # newvar <- "sex_male"
+      newvar <- "sex_male"
       # newvar <- "facility_display_id"
       # newvar <- "medhist_afib"
       newvar <- "admission_ddimer_units"
@@ -56,7 +56,8 @@ recode_variables <- function(dat, dat_new_variables, varnames) {
   }, simplify = FALSE)
   
   df_out <- bind_cols(newdat_tmp)
-  return(df_out)
+  df_out2 <- cbind(dat, df_out)
+  return(df_out2)
 }
 
 
@@ -96,6 +97,7 @@ make_new_variables <- function(dat, dat_new_variables) {
       
       dat[, x] <- dat$tmpvar
     })
+    
   }
   
   return(dat)
@@ -121,6 +123,237 @@ summarize_categorical <- function(dat, variable_tmp, label_tmp, notes_tmp, condi
     select(variable, level = Var1, count = Freq, condition, label, notes)
   return(df_out)
 }
+
+
+
+make_table_cont <- function(dat, df_labels, type_variable, group_var) {
+  if (FALSE) {
+    dat <- df4
+    df_labels <- df_tmp
+    type_variable <- "type2"
+    group_var <- "highest_dose_beforeicu"
+  }
+  
+  df_labels_cont <- df_labels %>%
+    mutate(type_variable_tmp = eval(parse(text = type_variable))) %>%
+    filter(type_variable_tmp %in% c("Continuous", "Integer"))
+  
+  dat_cont <- lapply(1:nrow(df_labels_cont), function(i) {
+    if (FALSE) {
+      i <- 1
+    }
+    varname_i <- df_labels_cont[i, "variable_name"]
+    dat_tmp <- dat 
+    dat_tmp$vartmp <- dat_tmp[, varname_i]
+    dat_tmp2 <- dat_tmp %>%
+      group_by(eval(parse(text = group_var))) %>%
+      summarize(
+        mean_tmp = mean(vartmp, na.rm = TRUE),
+        sd_tmp = sd(vartmp, na.rm = TRUE),
+        median_tmp = quantile(vartmp, probs = 0.5, na.rm = TRUE),
+        first_quartile = quantile(vartmp, probs = 0.25, na.rm = TRUE),
+        third_quartile = quantile(vartmp, probs = 0.75, na.rm = TRUE),
+        n_nonmissing = n() - sum(is.na(vartmp)),
+        n_missing = sum(is.na(vartmp)) ) %>%
+      as.data.frame(.) %>%
+      mutate(
+        var_name = varname_i,
+        var_label = df_labels_cont[i, "label"]
+      )
+    return(dat_tmp2)
+  })
+  
+  df_cont <- bind_rows(dat_cont)
+  return(df_cont)
+}
+
+
+
+make_table_binary <- function(dat, df_labels, type_variable, group_var) {
+  if (FALSE) {
+    dat <- df4
+    df_labels <- df_tmp
+    type_variable <- "type2"
+    group_var <- "highest_dose_beforeicu"
+  }
+  
+  df_labels_cat <- df_labels %>%
+    mutate(type_variable_tmp = eval(parse(text = type_variable))) %>%
+    filter(type_variable_tmp %in% c("Binary"))
+  
+  dat_cat <- lapply(1:nrow(df_labels_cat), function(i) {
+    if (FALSE) {
+      i <- 1
+    }
+    varname_i <- df_labels_cat[i, "variable_name"]
+    dat_tmp <- as.data.frame(dat)
+    dat_tmp$vartmp <- dat_tmp[, varname_i]
+    dat_tmp2 <- dat_tmp %>%
+      group_by(eval(parse(text = group_var))) %>%
+      # filter(highest_dose_beforeicu == "Full") %>%
+      summarize(
+        n_nonmissing = n() - sum(is.na(vartmp)),
+        n_total = n(),
+        prop_among_all = sum(vartmp == 1, na.rm = TRUE) / n_total,
+        prop_among_nonmissing = sum(vartmp == 1, na.rm = TRUE) / n_nonmissing ) %>%
+      as.data.frame(.) %>%
+      mutate(
+        var_name = varname_i,
+        var_label = df_labels_cat[i, "label"]
+      )
+    return(dat_tmp2)
+  })
+  
+  df_cat <- bind_rows(dat_cat)
+  return(df_cat)
+}
+
+
+
+process_table_cont <- function(dat) {
+  if (FALSE) {
+    dat <- df_out_cont
+  }
+  
+  groups <- c("None", "Low", "Intermediate", "Full")
+  
+  dat_list <- lapply(groups, function(x) {
+    if (FALSE) {
+      x <- "None"
+    }
+    dat_tmp <- dat[dat[,1] == x, ] %>%
+      mutate(
+        # mean_tmp2 = signif(mean_tmp, digits = 3),
+        # mean_tmp3 = sprintf(mean_tmp, fmt = '%#.3f')
+        mean_tmp2 = round(mean_tmp, 2),
+        sd_tmp2 = round(sd_tmp, 2),
+        median_tmp2 = round(median_tmp, 2),
+        first_quartile2 = round(first_quartile, 2),
+        third_quartile2 = round(third_quartile, 2),
+        levelvar = paste0(median_tmp2, " (", first_quartile2, ", ", third_quartile2, ")")) %>%
+      select(var_label, levelvar, n_nonmissing)
+    # mutate(groupvar = x)
+  })
+  
+  df_list <- purrr::reduce(dat_list, left_join, by = "var_label")
+  
+  return(df_list)
+}
+
+
+
+
+process_table_binary <- function(dat) {
+  if (FALSE) {
+    dat <- df_out_binary
+  }
+  
+  groups <- c("None", "Low", "Intermediate", "Full")
+  
+  dat_list <- lapply(groups, function(x) {
+    if (FALSE) {
+      x <- "None"
+    }
+    dat_tmp <- dat[dat[,1] == x, ] %>%
+      mutate(
+        percent = round(prop_among_all * 100, 1),
+        count = n_total ) %>%
+      select(var_label, percent, count)
+    # mutate(groupvar = x)
+  })
+  
+  df_list <- purrr::reduce(dat_list, left_join, by = "var_label")
+  
+  return(df_list)
+}
+
+process_table_binary2 <- function(dat) {
+  if (FALSE) {
+    dat <- df_out_binary
+  }
+  
+  groups <- c("None", "Low", "Intermediate", "Full")
+  
+  dat_list <- lapply(groups, function(x) {
+    if (FALSE) {
+      x <- "None"
+    }
+    dat_tmp <- dat[dat[,1] == x, ] %>%
+      mutate(
+        percent = round(prop_among_nonmissing * 100, 1),
+        count = n_nonmissing ) %>%
+      select(var_label, percent, count)
+    # mutate(groupvar = x)
+  })
+  
+  df_list <- purrr::reduce(dat_list, left_join, by = "var_label")
+  
+  return(df_list)
+}
+
+
+
+
+
+anticoag_table_continuous <- function(dat, df_labels, type_variable, group_var) {
+  if (0) {
+    dat = df4
+    df_labels = df_tmp
+    type_variable = "type2"
+    group_var = "highest_dose_beforeicu"
+  }
+  df_out_cont <- make_table_cont(
+    dat = dat,
+    df_labels = df_labels,
+    type_variable = type_variable,
+    group_var = group_var
+  )
+  
+  df_table_cont <- process_table_cont(df_out_cont)
+  names(df_table_cont) <- c(" ", "Median (IQR)", "n", "Median (IQR)", "n", "Median (IQR)", "n", "Median (IQR)", "n")
+  
+  kbl(df_table_cont) %>%
+    kable_classic() %>%
+    add_header_above(c(" " = 1, "None" = 2, "Low" = 2, "Intermediate" = 2, "Full" = 2))
+  
+}
+
+
+
+
+
+anticoag_table_binary <- function(dat, df_labels, type_variable, group_var, nonmissing_denom = FALSE) {
+  if (0) {
+    dat = df4
+    df_labels = df_tmp
+    type_variable = "type2"
+    group_var = "highest_dose_beforeicu"
+    nonmissing_denom = FALSE
+  }
+  
+  df_out_binary <- make_table_binary(
+    dat = dat,
+    df_labels = df_labels,
+    type_variable = type_variable,
+    group_var = group_var
+  )
+  
+  if (nonmissing_denom) {
+    df_table_binary <- process_table_binary(df_out_binary)
+  } else {
+    df_table_binary <- process_table_binary2(df_out_binary)
+  }
+  
+  names(df_table_binary) <- c(" ", "Percent", "n", "Percent", "n", "Percent", "n", "Percent", "n")
+  
+  kbl(df_table_binary) %>%
+    kable_classic() %>%
+    add_header_above(c(" " = 1, "None" = 2, "Low" = 2, "Intermediate" = 2, "Full" = 2))
+  
+  
+}
+
+
 
 
 

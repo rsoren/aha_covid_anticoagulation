@@ -24,23 +24,6 @@ df_doc <- read.csv(documentation)
 
 df_in <- read_sas(dataFile)
 
-if (0) {
-  # get hospitalizations by age and sex
-  df_as <- df_in %>%
-    mutate(
-      age_group = cut(AGEi, breaks = seq(0, 120, by = 5), right = FALSE),
-      sex_male = ifelse(SEX %in% 1, 1, ifelse(SEX %in% 2, 0, NA)) ) %>%
-    filter(!is.na(age_group) & !is.na(sex_male)) %>%
-    group_by(age_group, sex_male) %>%
-    summarize(n_obs = n()) %>%
-    as.data.frame(.)
-  
-  library(knitr)
-  library(kableExtra)
-  
-  
-}
-
 
 library(RCurl)
 url_vars <- "https://raw.githubusercontent.com/rsoren/aha_covid_input_data/main/01_variable_encoding.csv"
@@ -94,6 +77,32 @@ df_newvars2 <- df_newvars %>%
 
 
 df4_tmp <- make_new_variables(dat = df3, dat_new_variables = df_newvars2)
+
+if (0) {
+  # latest_lowdose_date_beforehe
+  # 
+  definintion_tmp <- "max(lowdose_date1_beforehe, lowdose_date2_beforehe, na.rm = TRUE)"
+  definition_tmp2 <- "select(lowdose_date1_beforehe, lowdose_date2_beforehe) %>% apply(., 2, function(x) max(x, na.rm = TRUE))"
+  
+  system.time({
+    df_tmp <- df4_tmp %>%
+      rowwise(.) %>%
+      # .[1:1000, ] %>%
+      mutate(
+        tmpvar = eval(parse(text = definition_tmp)) ) %>%
+      as.data.frame(.)
+  })
+  
+  system.time({
+    df_tmp <- df4_tmp %>%
+      select(lowdose_date1_beforehe, lowdose_date2_beforehe) %>%
+      as.data.frame(.)
+    
+    df_tmp[, "tmpvar2"] <- apply(df_tmp, 1, function(x) max(x, na.rm = TRUE))
+  })
+  
+  
+}
 
 
 
