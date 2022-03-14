@@ -1,7 +1,7 @@
 ---
 title: "COVID-19 thrombosis analysis"
 author: "Reed Sorensen"
-date: "12/5/2021"
+date: "14/03/2021"
 output: 
   html_document:
     toc: yes
@@ -15,41 +15,37 @@ knitr::opts_chunk$set(echo = TRUE)
 ### Tables by highest dosage of anti-coagulation therapy {.tabset}
 
 ```{r include=FALSE, message=FALSE}
-#
-# make_tables.R
-#
-# Reed Sorensen
-# September 2021
-#
 
 library(dplyr)
 library(lubridate)
+library(arrow)
+library(knitr)
+library(kableExtra)
+library(purrr)
 
 
-output_dir <- "/mnt/workspace/GWTG/COVID19/ihme_diagnostics/thrombosis/tmp_outputs/"
+code_dir <- "/mnt/workspace/GWTG/COVID19/ihme_code/thrombosis/aha_covid_anticoagulation/"
+config2_path <- c(
+  "/mnt/workspace/GWTG/COVID19/ihme_diagnostics/thrombosis/working_dirs/v2022-03-14/processed_data/config2.RDS"
+)
+config2 <- readRDS(config2_path)
+
+output_dir <- file.path(config2$working_dir, "results")
+if (!dir.exists(output_dir)) dir.create(output_dir)
 
 
-url_vars <- "https://raw.githubusercontent.com/rsoren/aha_covid_input_data/main/01_variable_encoding.csv"
-url_newvars <- "https://raw.githubusercontent.com/rsoren/aha_covid_input_data/main/02_create_new_variables.csv"
-url_table1_vars <- "https://raw.githubusercontent.com/rsoren/aha_covid_input_data/main/table1_table2_variable_list.csv"
-url_table3_vars <- "https://raw.githubusercontent.com/rsoren/aha_covid_input_data/main/table3_variable_list.csv"
+df_vars <- read_parquet(file.path(config2$working_dir, "variable_specs/vars.parquet"))
+df_newvars <- read_parquet(file.path(config2$working_dir, "variable_specs/newvars.parquet"))
+df_table1_vars <- read_parquet(file.path(config2$working_dir, "variable_specs/table1_vars.parquet"))
+df_table3_vars <- read_parquet(file.path(config2$working_dir, "variable_specs/table3_vars.parquet"))
+
+df1 <- read_parquet(file.path(config2$working_dir, "processed_data/df1.parquet"))
+df2 <- read_parquet(file.path(config2$working_dir, "processed_data/df2.parquet"))
+df4_tmp <- read_parquet(file.path(config2$working_dir, "processed_data/df4_tmp.parquet"))
+df4 <- read_parquet(file.path(config2$working_dir, "processed_data/df4.parquet"))
 
 
-df_vars <- read.csv(text = RCurl::getURL(url_vars), as.is = TRUE)
-df_newvars <- read.csv(text = RCurl::getURL(url_newvars), as.is = TRUE)
-df_table1_vars <- read.csv(text = RCurl::getURL(url_table1_vars), as.is = TRUE)
-df_table3_vars <- read.csv(text = RCurl::getURL(url_table3_vars), as.is = TRUE)
-
-df1 <- readRDS(file.path(output_dir, "df1.RDS")) %>% as.data.frame(.)
-df2 <- readRDS(file.path(output_dir, "df2.RDS")) %>% as.data.frame(.)
-df4_tmp <- readRDS(file.path(output_dir, "df4_tmp.RDS")) %>% as.data.frame(.)
-df4 <- readRDS(file.path(output_dir, "df4.RDS")) %>% as.data.frame(.)
-
-
-
-
-
-source("/mnt/workspace/GWTG/COVID19/ihme_code/thrombosis/aha_covid_anticoagulation/99_functions.R")
+source(file.path(code_dir, "99_analytic_functions.R"))
 
 
 df_vars2 <- df_vars[, c("new_var", "type")] %>% 
@@ -64,10 +60,6 @@ df_tmp <- df_table1_vars %>%
   left_join(df_vars2, by = c("variable_name" = "new_var")) %>%
   left_join(df_newvars2, by = c("variable_name" = "new_variable_name")) %>%
   mutate(type2 = ifelse(is.na(type.x), type.y, type.x))
-
-library(knitr)
-library(kableExtra)
-library(purrr)
 
 options(scipen = 999)
 
@@ -219,25 +211,26 @@ Table 3, missingness -- Variables with "NC"
 ```{r echo=FALSE, message=FALSE}
 
 
-df5 <- as.data.frame(cbind(
-  df1, 
-  data.frame(during_ami_any = df2[, "during_ami_any"], admission_date = df2[, "admission_date"]) )) %>%
-  mutate(pid = paste0(FACILITY_DISPLAY_ID, "__", PATIENT_DISPLAY_ID)) %>%
-  arrange(pid, admission_date)
+# df5 <- as.data.frame(cbind(
+#   df1, 
+#   data.frame(during_ami_any = df2[, "during_ami_any"], admission_date = df2[, "admission_date"]) )) %>%
+#   mutate(pid = paste0(FACILITY_DISPLAY_ID, "__", PATIENT_DISPLAY_ID)) %>%
+#   arrange(pid, admission_date)
+# 
+# # head(df5$pid)
+# # head(df4_tmp$pid)
+# # tail(df5$pid)
+# # tail(df4_tmp$pid)
+# df5$meets_exclusion_criteria <- df4_tmp$meets_exclusion_criteria
+# df5$is_earliest_admission_date <- df4_tmp$is_earliest_admission_date
+# df5$has_duplicate_adm_dates <- df4_tmp$has_duplicate_adm_dates
+#     
+# df6 <- df5 %>% 
+#   filter(!has_duplicate_adm_dates) %>%
+#   filter(is_earliest_admission_date) %>%
+#   filter(!meets_exclusion_criteria %in% 1)
 
-# head(df5$pid)
-# head(df4_tmp$pid)
-# tail(df5$pid)
-# tail(df4_tmp$pid)
-df5$meets_exclusion_criteria <- df4_tmp$meets_exclusion_criteria
-df5$is_earliest_admission_date <- df4_tmp$is_earliest_admission_date
-df5$has_duplicate_adm_dates <- df4_tmp$has_duplicate_adm_dates
-    
-df6 <- df5 %>% 
-  filter(!has_duplicate_adm_dates) %>%
-  filter(is_earliest_admission_date) %>%
-  filter(!meets_exclusion_criteria %in% 1)
-
+df6 <- df4
 
 df_tbl3_1 <- df_table3_vars %>% filter(!is.na(nc_level))
 

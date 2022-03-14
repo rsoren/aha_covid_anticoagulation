@@ -65,6 +65,13 @@ recode_variables <- function(dat, dat_new_variables, varnames) {
 
 #####
 
+get_string_between_parentheses <- function(x) {
+  require(stringr)
+  tmp <- str_extract_all(x, "\\([^()]+\\)")[[1]]
+  out <- substring(tmp, 2, nchar(tmp)-1)
+  return(out)
+}
+
 make_new_variables <- function(dat, dat_new_variables) {
   if (FALSE) {
     dat = df3
@@ -79,21 +86,38 @@ make_new_variables <- function(dat, dat_new_variables) {
   }
   # for (x in unique(dat_new_variables$new_variable_name)) {
   for (i in 1:nrow(dat_new_variables)) {
+  # for (i in 1:48) {
     if (FALSE) {
-      i <- 30
+      i <- 48
     }
     x <- dat_new_variables[i, "new_variable_name"]
     try({
+      
       definition_tmp <- as.character(dat_new_variables[i, "definition"])
       cat(paste0("\n", x, " = ", definition_tmp, "\n"))
       
       if (dat_new_variables[i, "rowwise"] == 1) {
-        dat <- dat %>% rowwise(.)
+        # dat <- dat %>% rowwise(.)
+        
+        x1 <- get_string_between_parentheses(definition_tmp)
+        x2 <- str_split_fixed(x1, pattern = ", ", n = Inf)[1,]
+        x3 <- paste0("c(", paste(paste0("'", x2[1:(length(x2)-1)], "'"), collapse = ", "), ")")
+        tmp <- as.data.frame(dat)[, eval(parse(text = x3))]
+        
+        notes_tmp <- dat_new_variables[i, "notes"]
+        if (notes_tmp == "max_narm") {
+          dat$tmpvar <- apply(X = tmp, MARGIN = 1, FUN = function(x) max(x, na.rm = TRUE))
+        } else if (notes_tmp == "min_narm") {
+          dat$tmpvar <- apply(X = tmp, MARGIN = 1, FUN = function(x) min(x, na.rm = TRUE))
+        }
+        
+      } else {
+        dat <- dat %>%
+          mutate(
+            tmpvar = eval(parse(text = definition_tmp)) ) %>%
+          as.data.frame(.)
+        
       }
-      dat <- dat %>%
-        mutate(
-          tmpvar = eval(parse(text = definition_tmp)) ) %>%
-        as.data.frame(.)
       
       dat[, x] <- dat$tmpvar
     })
