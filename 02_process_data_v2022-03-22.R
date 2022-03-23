@@ -1,5 +1,5 @@
 #
-# 01_process_data_v2022-03-14.R 
+# 01_process_data_v2022-03-22.R 
 #
 # March 2022
 #
@@ -12,13 +12,13 @@ library(arrow)
 
 rm(list = ls())
 
-process_data_version_id <- "v2022-03-14"
+process_data_version_id <- "v2022-03-22"
 code_dir <- "/mnt/workspace/GWTG/COVID19/ihme_code/thrombosis/aha_covid_anticoagulation/"
 write_processed_data <- 0
 
 
 inputdata_config_path <- c(
-  "/mnt/workspace/GWTG/COVID19/ihme_diagnostics/thrombosis/working_dirs/v2022-03-14/config.RDS"
+  "/mnt/workspace/GWTG/COVID19/ihme_diagnostics/thrombosis/working_dirs/v2022-03-22/config.RDS"
 )
 
 config1 <- readRDS(inputdata_config_path)
@@ -38,7 +38,7 @@ saveRDS(object = config2, file = file.path(process_data_dir, "config2.RDS"))
 if (0) {
   # reload input data?
   cmd <- paste(
-    paste0("/opt/R/4.0.2/lib/R/bin/Rscript ", file.path(code_dir, "01_load_data_v2022-03-14.R")),
+    paste0("/opt/R/4.0.2/lib/R/bin/Rscript ", file.path(code_dir, "01_load_data_v2022-03-22.R")),
     paste0("--code_dir ", code_dir), 
     paste0("--write_data ", 0),
     paste0("--write_specs ", 1)
@@ -51,6 +51,16 @@ if (0) {
 # process data
 
 df_in <- read_parquet(file.path(datapath, "sas_inputdata.parquet"))
+
+if (0) {
+  # check whether certain variables are in the original dataset
+  var_tmp <- toupper("subqufhdt")
+  var_tmp %in% names(df_in)
+  
+  vars2 <- names(df_in)[grepl(var_tmp, names(df_in))]
+  vars2
+}
+
 
 df_vars <- read_parquet(file.path(specpath, "vars.parquet"))
 df_newvars <- read_parquet(file.path(specpath, "newvars.parquet"))
@@ -76,6 +86,41 @@ df2 <- recode_variables(
   dat_new_variables = df_vars2,
   varnames = new_analytic_vars ) %>%
   mutate(pid = paste0(facility_display_id, "__", patient_display_id))
+
+
+
+
+
+recode_nc <- TRUE
+if (recode_nc) {
+  
+  df_vars_nc <- df_vars2 %>%
+    as.data.frame(.) %>%
+    filter(notes %in% " Original level 3 represents 'NC'; not used here")
+  
+  var_names_nc <- df_vars_nc$orig_var
+  sapply(var_names_nc, function(x) table(df2[, x], useNA = "always"), simplify = FALSE)
+  sapply(df_vars_nc$new_var, function(x) table(df2[, x], useNA = "always"), simplify = FALSE)
+  
+  
+  for (i in 1:nrow(df_vars_nc)) {
+    if (0) {
+      i <- 1
+    }
+    
+    oldvar <- df_vars_nc[i, "orig_var"]
+    newvar <- df_vars_nc[i, "new_var"]
+    
+    df2[, newvar] <- ifelse(df2[, oldvar] == 3, 0, df2[, newvar])
+    
+  }
+  
+    
+}
+
+
+
+
 
 # for patients with multiple visits, track information about when and how many
 df_patients <- df2 %>%
@@ -120,6 +165,7 @@ df4 <- df4_tmp %>%
 
 
 if (write_processed_data) {
+  cat("\n\nWriting processed data...\n\n")
   lapply(list(df1, df2, df4_tmp, df4), function(x) {nrow(x)})
   
   output_dir <- config2$process_data_dir

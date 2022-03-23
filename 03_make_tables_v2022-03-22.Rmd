@@ -1,7 +1,7 @@
 ---
 title: "COVID-19 thrombosis analysis"
 author: "Reed Sorensen"
-date: "14/03/2021"
+date: "22 March 2022"
 output: 
   html_document:
     toc: yes
@@ -26,7 +26,7 @@ library(purrr)
 
 code_dir <- "/mnt/workspace/GWTG/COVID19/ihme_code/thrombosis/aha_covid_anticoagulation/"
 config2_path <- c(
-  "/mnt/workspace/GWTG/COVID19/ihme_diagnostics/thrombosis/working_dirs/v2022-03-14/processed_data/config2.RDS"
+  "/mnt/workspace/GWTG/COVID19/ihme_diagnostics/thrombosis/working_dirs/v2022-03-22/processed_data/config2.RDS"
 )
 config2 <- readRDS(config2_path)
 
@@ -300,6 +300,122 @@ Table 3, missingness -- Variables with "No/ND"
 kbl(dat3_2) %>%
   kable_classic()
 ```
+
+
+
+### Extra stuff (14 March 2022)
+
+#### 1. Among people with 'any_during_anticoag_whatsoever'==0, how much missingness among A/C variables
+
+```{r echo=TRUE, message=FALSE}
+
+# a)  Include only patients with "No" or "Yes" with non-missing dates for anticoagulation AND  
+# - this would apply to any anticoagulation choice
+
+
+date_vars <- c(
+  "during_anticoag_dvt_date", 
+  "during_subq_lmwh_low_date", 
+  "during_subq_lmwh_intermediate_date",
+  "during_subq_lmwh_full_date", 
+  "during_subq_uh_date", 
+  "during_subq_paruh_date", 
+  "during_doac_date", 
+  "during_warfarin_date", 
+  "during_argatroban_date", 
+  "during_bivalirudin_date"
+)
+
+df4$n_nonmissing_anticoag_dates <- apply(df4[, date_vars], 1, function(x) {
+  sum(!is.na(x))
+})
+
+anticoag_vars <- gsub("_date", "", date_vars)
+
+df4$n_nonmissing_anticoag_values <- apply(df4[, anticoag_vars], 1, function(x) {
+  sum(!is.na(x))
+})
+
+# table(df4$n_nonmissing_anticoag_values)
+cat("\n\nAmong people with no recorded A/C usage whatsoever, the number of non-missing A/C values (among 10 variables)\n")
+with(df4 %>% filter(any_during_anticoag_whatsoever == 0), table(n_nonmissing_anticoag_values))
+
+
+df4$n_recorded_no <- apply(df4[, anticoag_vars], 1, function(x) {
+  if (!all(is.na(x))) {
+    sum(x == 0, na.rm = TRUE)
+  } else {
+    NA
+  }
+})
+
+# table(df4$n_recorded_no, useNA = "always")
+cat("\n\nAmong people with no recorded A/C usage whatsoever, the number of recorded 'No' observations (among 10 variables)\n")
+
+with(df4 %>% filter(any_during_anticoag_whatsoever == 0), table(n_recorded_no, useNA = "always"))
+
+# cat("\n\nAny A/C whatsoever")
+# table(df4$any_during_anticoag_whatsoever, useNA = "always")
+# 
+# # length(date_vars)
+# # with(df4, table(n_missing_anticoag_dates))
+# 
+# cat("\n\nAmong people taking A/C whatsoever, number of missing dates (10 dates total)\n")
+# with(df4 %>% filter(any_during_anticoag_whatsoever == 1), table(n_missing_anticoag_dates))
+
+
+
+
+```
+
+#### 2. 
+
+```{r echo=TRUE, message=FALSE}
+
+# a)  Include only patients with "No" or "Yes" with non-missing dates for anticoagulation AND  
+# - this would apply to any anticoagulation choice
+
+
+date_vars <- c(
+  "during_anticoag_dvt_date", 
+  "during_subq_lmwh_low_date", 
+  "during_subq_lmwh_intermediate_date",
+  "during_subq_lmwh_full_date", 
+  "during_subq_uh_date", 
+  "during_subq_paruh_date", 
+  "during_doac_date", 
+  "during_warfarin_date", 
+  "during_argatroban_date", 
+  "during_bivalirudin_date"
+)
+
+df4$n_missing_anticoag_dates <- apply(df4[, date_vars], 1, function(x) {
+  sum(is.na(x))
+})
+
+cat("\n\nAny A/C whatsoever")
+table(df4$any_during_anticoag_whatsoever)
+
+# length(date_vars)
+# with(df4, table(n_missing_anticoag_dates))
+
+cat("\n\nAmong people taking any A/C whatsoever, number of missing dates (10 dates total)\n")
+with(df4 %>% filter(any_during_anticoag_whatsoever == 1), table(n_missing_anticoag_dates))
+
+
+# how many people are on low dose DOAC
+table(df4$during_anticoag_dvt_type)
+
+df_tmp <- df4 %>%
+  filter(during_anticoag_dvt_type == "Low Dose DOAC") %>%
+  .[, c("ADMDT", "during_anticoag_dvt_date", anticoag_vars)]
+
+
+```
+
+
+
+
 
 
 ### All variables before/after applying exclusion criteria
