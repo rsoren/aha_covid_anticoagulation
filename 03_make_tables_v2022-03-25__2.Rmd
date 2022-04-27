@@ -65,6 +65,49 @@ options(scipen = 999)
 
 ```
 
+```{r include=FALSE, message=FALSE}
+
+# # check on how AFIBPRES is processed for the analytic dataset
+# # appears to have few 'yes' values in the table below:
+# #   Table 3, missingness -- Variables with "No/ND"
+# 
+# df_newvars2 <- df_newvars %>%
+#   filter(!new_variable_name %in% "")
+# exvar_idx <- which(df_newvars2$new_variable_name == "meets_exclusion_criteria")
+# exclusion_vars <- df_newvars2$new_variable_name[1:exvar_idx]
+# 
+# table(df1$AFIBPRES)
+# table(df2$AFIBPRES)
+# table(df4_tmp$AFIBPRES)
+# table(df4$AFIBPRES)
+# 
+# keep_vars_tmp <- c("AFIBPRES", "AFIBPRESDT", "during_afib", "during_afib_date", "ADMDT", exclusion_vars)
+# df_tmp1 <- df4_tmp %>%
+#   filter(AFIBPRES == 1) %>%
+#   as.data.frame(.) %>%
+#   .[, keep_vars_tmp]
+# 
+# 
+# df_tmp2 <- df4_tmp %>%
+#   filter(during_afib == 1) %>%
+#   select(during_afib, during_afib_date, admission_date, has_afib_at_admission) %>%
+#   mutate(
+#     tmp0 = during_afib %in% 1 & during_afib_date %in% c(NA, admission_date),
+#     tmp1 = during_afib %in% 1,
+#     tmp2 = during_afib_date %in% c(NA, admission_date),
+#     tmp2a = during_afib_date %in% c(NA),
+#     tmp2b = during_afib_date %in% c(admission_date),
+#     tmp2c = during_afib_date == c(admission_date),
+#     tmp3 = during_afib %in% 1 & (during_afib_date == admission_date | is.na(during_afib_date)),
+#   )
+# 
+# df_tmp3 <- df_tmp2 %>%
+#   filter(is.na(during_afib_date))
+
+```
+
+
+
 #### Any
 
 
@@ -261,7 +304,7 @@ df_tbl3_2 <- df_table3_vars %>% filter(!is.na(nond_level))
 
 dat3_2 <- bind_rows(lapply(1:nrow(df_tbl3_2), function(i) {
   if (FALSE) {
-    i <- 7
+    i <- 1
   }
   df_i <- df_tbl3_2[i,]
   var_tmp <- df_i[1, "variable_name"]
@@ -314,7 +357,7 @@ kbl(dat3_2) %>%
 
 
 date_vars <- c(
-  "during_anticoag_dvt_date", 
+  # "during_anticoag_dvt_date", # removing prophylactic A/C for DVT; variable used intermittently
   "during_subq_lmwh_low_date", 
   "during_subq_lmwh_intermediate_date",
   "during_subq_lmwh_full_date", 
@@ -335,9 +378,12 @@ anticoag_vars <- gsub("_date", "", date_vars)
 df4$n_nonmissing_anticoag_values <- apply(df4[, anticoag_vars], 1, function(x) {
   sum(!is.na(x))
 })
+df4$n_missing_anticoag_values <- apply(df4[, anticoag_vars], 1, function(x) {
+  sum(is.na(x))
+})
 
 # table(df4$n_nonmissing_anticoag_values)
-cat("\n\nAmong people with no recorded A/C usage whatsoever, the number of non-missing A/C values (among 10 variables)\n")
+cat("\n\nAmong people with no recorded A/C usage whatsoever, the number of non-missing A/C values (among 9 variables)\n")
 with(df4 %>% filter(any_during_anticoag_whatsoever == 0), table(n_nonmissing_anticoag_values))
 
 
@@ -350,7 +396,7 @@ df4$n_recorded_no <- apply(df4[, anticoag_vars], 1, function(x) {
 })
 
 # table(df4$n_recorded_no, useNA = "always")
-cat("\n\nAmong people with no recorded A/C usage whatsoever, the number of recorded 'No' observations (among 10 variables)\n")
+cat("\n\nAmong people with no recorded A/C usage whatsoever, the number of recorded 'No' observations (among 9 variables)\n")
 
 with(df4 %>% filter(any_during_anticoag_whatsoever == 0), table(n_recorded_no, useNA = "always"))
 
@@ -364,51 +410,115 @@ with(df4 %>% filter(any_during_anticoag_whatsoever == 0), table(n_recorded_no, u
 # with(df4 %>% filter(any_during_anticoag_whatsoever == 1), table(n_missing_anticoag_dates))
 
 
+cat("\n\nAmong people with at least 1 recorded A/C, the number of non-missing A/C values (among 9 variables)\n")
+# NOTE: this table includes several '0' non-missing A/C values
+# this is because more A/C variables are used in the construction of 'any_during_anticoag_whatsoever' variable than
+# those listed above. the ones listed above are only those with corresponding dates. please see lines 123 to 128 here:
+# https://github.com/rsoren/aha_covid_dataprep_specs/blob/main/02_create_new_variables.csv
+with(df4 %>% filter(any_during_anticoag_whatsoever == 1), table(n_nonmissing_anticoag_values))
 
 
 ```
 
-#### 2. Misc.
 
-```{r echo=TRUE, message=FALSE}
+#### 2. Other missingness questions
 
-# a)  Include only patients with "No" or "Yes" with non-missing dates for anticoagulation AND  
-# - this would apply to any anticoagulation choice
+```{r}
+cat("\n\nFor those that had any missing anticoagulation (OR yes but a missing date), how many of the anticoagulation fields were missing?\n\n")
 
 
-date_vars <- c(
-  "during_anticoag_dvt_date", 
-  "during_subq_lmwh_low_date", 
-  "during_subq_lmwh_intermediate_date",
-  "during_subq_lmwh_full_date", 
-  "during_subq_uh_date", 
-  "during_subq_paruh_date", 
-  "during_doac_date", 
-  "during_warfarin_date", 
-  "during_argatroban_date", 
-  "during_bivalirudin_date"
-)
 
-df4$n_missing_anticoag_dates <- apply(df4[, date_vars], 1, function(x) {
-  sum(is.na(x))
+for (var in anticoag_vars) {
+  newvar_name <- paste0(var, "__yes_butnodate")
+  df4[newvar_name] <-  df4[, var] %in% 1 & is.na(df4[, paste0(var, "_date")])
+}
+newvar_names <- names(df4)[grepl("__yes_butnodate", names(df4))]
+
+sapply(newvar_names, function(x) table(df4[, x]), simplify = FALSE)
+
+df4$n_yes_anticoag_but_missing_date <- apply(X = df4[, newvar_names], MARGIN = 1, FUN = function(x) {
+  sum(x, na.rm = TRUE)
 })
 
-cat("\n\nAny A/C whatsoever")
-table(df4$any_during_anticoag_whatsoever)
+table(df4$n_missing_anticoag_values)
+table(df4$n_yes_anticoag_but_missing_date)
+table(df4$n_yes_anticoag_but_missing_date, df4$n_missing_anticoag_values)
 
-# length(date_vars)
-# with(df4, table(n_missing_anticoag_dates))
+# include only those with at least 1 missing anticoagulation OR at least 1 reported-anticoagulation-but-no-date
+dfe1 <- df4 %>%
+  filter(n_missing_anticoag_values > 0 | n_yes_anticoag_but_missing_date > 0) 
 
-cat("\n\nAmong people taking any A/C whatsoever, number of missing dates (10 dates total)\n")
-with(df4 %>% filter(any_during_anticoag_whatsoever == 1), table(n_missing_anticoag_dates))
+table(dfe1$n_missing_anticoag_values)
+
+
+
+cat("For those that had any missing health events (OR yes but a missing date), how many health event fields were missing?")
+
+for (include_limb_ischemia in c(TRUE, FALSE)) {
+  
+  if (include_limb_ischemia) {
+    exclude_vars <- c("PATMANICU")
+    cat("\n\n\nINCLUDING LIMB ISCHEMIA\n")
+  } else {
+    exclude_vars <- c("PATMANICU", "ACUTLMBISCH")
+    cat("\n\n\nEXCLUDING LIMB ISCHEMIA\n")
+  }
+  
+  df_healthvars <- df_table3_vars %>%
+    filter(is.na(nc_level)) %>% # filtering on missing NC level because those happen to correspond to health events (except the ICU variable)
+    filter(!variable_name %in% exclude_vars)
+  
+  healthvar_names <- character(nrow(df_healthvars))
+  for (i in 1:nrow(df_healthvars)) {
+    if (0) {
+      i <- 1
+    }
+    var_tmp <- df_healthvars[i, "variable_name"]
+    datevar_tmp <- df_healthvars[i, "date_var"]
+    newvar_name <- paste0(var_tmp, "__yes_butnodate")
+    df4[newvar_name] <-  df4[, var_tmp] %in% 1 & is.na(df4[, datevar_tmp])
+    healthvar_names[i] <- newvar_name
+  }
+  
+  df4$n_yes_healthevent_but_missing_date <- apply(X = df4[, healthvar_names], MARGIN = 1, FUN = function(x) {
+    sum(x, na.rm = TRUE)
+  })
+  
+  df4$n_missing_healthevents <- apply(df4[, df_healthvars$variable_name], 1, function(x) {
+    sum(is.na(x))
+  })
+  
+  cat("\n\nloop through all health events, summary stats\n")
+  print(sapply(df_healthvars$variable_name, function(x) table(df4[, x], useNA = "always"), simplify = FALSE))
+  
+  cat("\n\nTables of missing health events; yes but missing data; and a cross-table of the two\n")
+  print(table(df4$n_missing_healthevents))
+  print(table(df4$n_yes_healthevent_but_missing_date))
+  print(table(df4$n_yes_healthevent_but_missing_date, df4$n_missing_healthevents))
+  
+  dfe2 <- df4 %>%
+    filter(n_missing_healthevents > 0 | n_yes_healthevent_but_missing_date > 0)
+  
+  cat("\n\nNumber of missing health events, among those with at least 1 missing OR yes-but-missing-date\n")
+  print(table(dfe2$n_missing_healthevents, useNA = "always"))
+  
+}
+# May need to look at this with and without acute limb ischemia as a health event to get a sense of the degree of overlap
+
+
+```
+
+#### 3. Misc.
+
+```{r echo=TRUE, message=FALSE}
 
 
 # how many people are on low dose DOAC
 table(df4$during_anticoag_dvt_type)
 
-df_tmp <- df4 %>%
-  filter(during_anticoag_dvt_type == "Low Dose DOAC") %>%
-  .[, c("ADMDT", "during_anticoag_dvt_date", anticoag_vars)]
+# dfe <- df4 %>%
+#   filter(during_anticoag_dvt_type == "Low Dose DOAC") %>%
+#   .[, c("ADMDT", date_vars)]
 
 
 ```

@@ -193,7 +193,6 @@ df4_tmp <- make_new_variables(dat = df3, dat_new_variables = df_newvars2)
 
 
 # NOTE:
-# 15 subjects had PE during the hospitalization, with no history of PE, but there wasn't a diagnosis date; kept these in
 df4 <- df4_tmp %>%
   filter(!has_duplicate_adm_dates) %>%
   filter(is_earliest_admission_date) %>%
