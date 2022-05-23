@@ -1,0 +1,629 @@
+---
+title: "COVID-19 thrombosis analysis"
+author: "Reed Sorensen"
+date: "17 May 2022"
+output: 
+  html_document:
+    toc: yes
+    toc_depth: 5
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Tables by highest dosage of anti-coagulation therapy {.tabset}
+
+```{r include=FALSE, message=FALSE}
+
+library(dplyr)
+library(lubridate)
+library(arrow)
+library(knitr)
+library(kableExtra)
+library(purrr)
+
+
+code_dir <- "/mnt/workspace/GWTG/COVID19/ihme_code/thrombosis/aha_covid_anticoagulation/"
+config2_path <- c(
+  "/mnt/workspace/GWTG/COVID19/ihme_diagnostics/thrombosis/working_dirs/v2022-05-17/processed_data/config2.RDS"
+)
+config2 <- readRDS(config2_path)
+
+output_dir <- file.path(config2$working_dir, "results")
+if (!dir.exists(output_dir)) dir.create(output_dir)
+
+
+df_vars <- read_parquet(file.path(config2$working_dir, "variable_specs/vars.parquet"))
+df_newvars <- read_parquet(file.path(config2$working_dir, "variable_specs/newvars.parquet"))
+df_table1_vars <- read_parquet(file.path(config2$working_dir, "variable_specs/table1_vars.parquet"))
+df_table3_vars <- read_parquet(file.path(config2$working_dir, "variable_specs/table3_vars.parquet"))
+
+df1 <- read_parquet(file.path(config2$working_dir, "processed_data/df1.parquet"))
+df2 <- read_parquet(file.path(config2$working_dir, "processed_data/df2.parquet"))
+df4_tmp <- read_parquet(file.path(config2$working_dir, "processed_data/df4_tmp.parquet"))
+df4 <- read_parquet(file.path(config2$working_dir, "processed_data/df4.parquet"))
+
+
+source(file.path(code_dir, "99_analytic_functions.R"))
+
+
+df_vars2 <- df_vars[, c("new_var", "type")] %>% 
+  mutate(stage = "orig") %>%
+  filter(!duplicated(.))
+
+df_newvars2 <- df_newvars[, c("new_variable_name", "type")] %>%
+  mutate(stage = "derived") %>%
+  filter(!duplicated(.))
+  
+df_tmp <- df_table1_vars %>%
+  left_join(df_vars2, by = c("variable_name" = "new_var")) %>%
+  left_join(df_newvars2, by = c("variable_name" = "new_variable_name")) %>%
+  mutate(type2 = ifelse(is.na(type.x), type.y, type.x))
+
+options(scipen = 999)
+
+```
+
+```{r include=FALSE, message=FALSE}
+
+# # check on how AFIBPRES is processed for the analytic dataset
+# # appears to have few 'yes' values in the table below:
+# #   Table 3, missingness -- Variables with "No/ND"
+# 
+# df_newvars2 <- df_newvars %>%
+#   filter(!new_variable_name %in% "")
+# exvar_idx <- which(df_newvars2$new_variable_name == "meets_exclusion_criteria")
+# exclusion_vars <- df_newvars2$new_variable_name[1:exvar_idx]
+# 
+# table(df1$AFIBPRES)
+# table(df2$AFIBPRES)
+# table(df4_tmp$AFIBPRES)
+# table(df4$AFIBPRES)
+# 
+# keep_vars_tmp <- c("AFIBPRES", "AFIBPRESDT", "during_afib", "during_afib_date", "ADMDT", exclusion_vars)
+# df_tmp1 <- df4_tmp %>%
+#   filter(AFIBPRES == 1) %>%
+#   as.data.frame(.) %>%
+#   .[, keep_vars_tmp]
+# 
+# 
+# df_tmp2 <- df4_tmp %>%
+#   filter(during_afib == 1) %>%
+#   select(during_afib, during_afib_date, admission_date, has_afib_at_admission) %>%
+#   mutate(
+#     tmp0 = during_afib %in% 1 & during_afib_date %in% c(NA, admission_date),
+#     tmp1 = during_afib %in% 1,
+#     tmp2 = during_afib_date %in% c(NA, admission_date),
+#     tmp2a = during_afib_date %in% c(NA),
+#     tmp2b = during_afib_date %in% c(admission_date),
+#     tmp2c = during_afib_date == c(admission_date),
+#     tmp3 = during_afib %in% 1 & (during_afib_date == admission_date | is.na(during_afib_date)),
+#   )
+# 
+# df_tmp3 <- df_tmp2 %>%
+#   filter(is.na(during_afib_date))
+
+```
+
+
+
+#### Any
+
+
+```{r echo=FALSE, message=FALSE}
+
+anticoag_table_continuous(
+  dat = df4,
+  df_labels = df_tmp,
+  type_variable = "type2",
+  group_var = "highest_dose_general"
+)
+
+anticoag_table_binary(
+  dat = df4,
+  df_labels = df_tmp,
+  type_variable = "type2",
+  group_var = "highest_dose_general",
+  nonmissing_denom = FALSE
+)
+
+
+```
+
+
+#### Before ICU
+
+```{r echo=FALSE, message=FALSE}
+anticoag_table_continuous(
+  dat = df4,
+  df_labels = df_tmp,
+  type_variable = "type2",
+  group_var = "highest_dose_beforeicu"
+)
+
+
+anticoag_table_binary(
+  dat = df4,
+  df_labels = df_tmp,
+  type_variable = "type2",
+  group_var = "highest_dose_beforeicu"
+)
+
+
+
+  
+```
+
+#### Before health event
+
+```{r echo=FALSE, message=FALSE}
+anticoag_table_continuous(
+  dat = df4,
+  df_labels = df_tmp,
+  type_variable = "type2",
+  group_var = "highest_dose_beforehe"
+)
+
+
+anticoag_table_binary(
+  dat = df4,
+  df_labels = df_tmp,
+  type_variable = "type2",
+  group_var = "highest_dose_beforehe", 
+  nonmissing_denom = FALSE
+)
+
+```
+
+
+#### Any (post July 2020) {.active}
+
+
+```{r echo=FALSE, message=FALSE}
+
+anticoag_table_continuous(
+  dat = df4 %>% filter(admission_date >= as_date("2020-08-01")),
+  df_labels = df_tmp,
+  type_variable = "type2",
+  group_var = "highest_dose_general"
+)
+
+anticoag_table_binary(
+  dat = df4 %>% filter(admission_date >= as_date("2020-08-01")),
+  df_labels = df_tmp,
+  type_variable = "type2",
+  group_var = "highest_dose_general",
+  nonmissing_denom = FALSE
+)
+
+
+```
+
+
+#### Before ICU (post July 2020)
+
+```{r echo=FALSE, message=FALSE}
+anticoag_table_continuous(
+  dat = df4 %>% filter(admission_date >= as_date("2020-08-01")),
+  df_labels = df_tmp,
+  type_variable = "type2",
+  group_var = "highest_dose_beforeicu"
+)
+
+
+anticoag_table_binary(
+  dat = df4 %>% filter(admission_date >= as_date("2020-08-01")),
+  df_labels = df_tmp,
+  type_variable = "type2",
+  group_var = "highest_dose_beforeicu"
+)
+
+
+
+  
+```
+
+#### Before health event (post July 2020)
+
+```{r echo=FALSE, message=FALSE}
+anticoag_table_continuous(
+  dat = df4 %>% filter(admission_date >= as_date("2020-08-01")),
+  df_labels = df_tmp,
+  type_variable = "type2",
+  group_var = "highest_dose_beforehe"
+)
+
+
+anticoag_table_binary(
+  dat = df4 %>% filter(admission_date >= as_date("2020-08-01")),
+  df_labels = df_tmp,
+  type_variable = "type2",
+  group_var = "highest_dose_beforehe", 
+  nonmissing_denom = FALSE
+)
+
+```
+
+
+
+
+### Missingness
+
+Table 3, missingness -- Variables with "NC"
+```{r echo=FALSE, message=FALSE}
+
+
+# df5 <- as.data.frame(cbind(
+#   df1, 
+#   data.frame(during_ami_any = df2[, "during_ami_any"], admission_date = df2[, "admission_date"]) )) %>%
+#   mutate(pid = paste0(FACILITY_DISPLAY_ID, "__", PATIENT_DISPLAY_ID)) %>%
+#   arrange(pid, admission_date)
+# 
+# # head(df5$pid)
+# # head(df4_tmp$pid)
+# # tail(df5$pid)
+# # tail(df4_tmp$pid)
+# df5$meets_exclusion_criteria <- df4_tmp$meets_exclusion_criteria
+# df5$is_earliest_admission_date <- df4_tmp$is_earliest_admission_date
+# df5$has_duplicate_adm_dates <- df4_tmp$has_duplicate_adm_dates
+#     
+# df6 <- df5 %>% 
+#   filter(!has_duplicate_adm_dates) %>%
+#   filter(is_earliest_admission_date) %>%
+#   filter(!meets_exclusion_criteria %in% 1)
+
+df6 <- df4
+
+df_tbl3_1 <- df_table3_vars %>% filter(!is.na(nc_level))
+
+dat3_1 <- bind_rows(lapply(1:nrow(df_tbl3_1), function(i) {
+  if (FALSE) {
+    i <- 1
+  }
+  df_i <- df_tbl3_1[i,]
+  var_tmp <- df_i[1, "variable_name"]
+  label_tmp <- df_i[1, "label"]
+  
+  df_yes_tmp <- df6[df6[, var_tmp] %in% 1, ]
+  
+  df_out <- data.frame(stringsAsFactors = FALSE,
+    Variable = label_tmp,
+    `Original variables` = paste0(var_tmp, ", ", df_i[1, "date_var"]),
+    No = sum(df6[, var_tmp] %in% 2),
+    NC = sum(df6[, var_tmp] %in% df_i[1, "nc_level"]),
+    Missing = sum(is.na(df6[, var_tmp])),
+    Yes = sum(df6[, var_tmp] %in% 1),
+    `If yes, non-missing date` =  sum(!is.na(df_yes_tmp[, df_i[, "date_var"]]))
+  )
+  return(df_out)
+}))
+
+
+df_tbl3_2 <- df_table3_vars %>% filter(!is.na(nond_level))
+
+dat3_2 <- bind_rows(lapply(1:nrow(df_tbl3_2), function(i) {
+  if (FALSE) {
+    i <- 1
+  }
+  df_i <- df_tbl3_2[i,]
+  var_tmp <- df_i[1, "variable_name"]
+  label_tmp <- df_i[1, "label"]
+  cat(label_tmp, "\n")
+  
+  df_yes_tmp <- df6[df6[, var_tmp] %in% 1, ]
+  
+  df_out <- data.frame(stringsAsFactors = FALSE,
+    Variable = label_tmp,
+    `Original variables` = paste0(var_tmp, ", ", df_i[1, "date_var"]),
+    `No/ND` = sum(df6[, var_tmp] %in% df_i[1, "nond_level"]),
+    Missing = sum(is.na(df6[, var_tmp])),
+    Yes = sum(df6[, var_tmp] %in% 1) )
+  
+  # if (var_tmp == "CLNBLDTRANS") {
+  if (0) {
+    df_out[, "If yes, non-missing date"] <- NA
+  } else {
+    df_out[, "If yes, non-missing date"] =  sum(!is.na(df_yes_tmp[, df_i[, "date_var"]]))
+    
+  }
+  return(df_out)
+}))
+
+
+kbl(dat3_1) %>%
+  kable_classic()
+
+
+```
+
+Table 3, missingness -- Variables with "No/ND"
+
+```{r echo=FALSE, message=FALSE}
+kbl(dat3_2) %>%
+  kable_classic()
+```
+
+
+
+### Extra stuff (14 March 2022)
+
+#### 1. Among people with 'any_during_anticoag_whatsoever'==0, how much missingness among A/C variables
+
+```{r echo=TRUE, message=FALSE}
+
+# a)  Include only patients with "No" or "Yes" with non-missing dates for anticoagulation AND  
+# - this would apply to any anticoagulation choice
+
+
+date_vars <- c(
+  # "during_anticoag_dvt_date", # removing prophylactic A/C for DVT; variable used intermittently
+  "during_subq_lmwh_low_date", 
+  "during_subq_lmwh_intermediate_date",
+  "during_subq_lmwh_full_date", 
+  "during_subq_uh_date", 
+  "during_subq_paruh_date", 
+  "during_doac_date", 
+  "during_warfarin_date", 
+  "during_argatroban_date", 
+  "during_bivalirudin_date"
+)
+
+df4$n_nonmissing_anticoag_dates <- apply(df4[, date_vars], 1, function(x) {
+  sum(!is.na(x))
+})
+
+anticoag_vars <- gsub("_date", "", date_vars)
+
+df4$n_nonmissing_anticoag_values <- apply(df4[, anticoag_vars], 1, function(x) {
+  sum(!is.na(x))
+})
+df4$n_missing_anticoag_values <- apply(df4[, anticoag_vars], 1, function(x) {
+  sum(is.na(x))
+})
+
+# table(df4$n_nonmissing_anticoag_values)
+cat("\n\nAmong people with no recorded A/C usage whatsoever, the number of non-missing A/C values (among 9 variables)\n")
+with(df4 %>% filter(any_during_anticoag_whatsoever == 0), table(n_nonmissing_anticoag_values))
+
+
+df4$n_recorded_no <- apply(df4[, anticoag_vars], 1, function(x) {
+  if (!all(is.na(x))) {
+    sum(x == 0, na.rm = TRUE)
+  } else {
+    NA
+  }
+})
+
+# table(df4$n_recorded_no, useNA = "always")
+cat("\n\nAmong people with no recorded A/C usage whatsoever, the number of recorded 'No' observations (among 9 variables)\n")
+
+with(df4 %>% filter(any_during_anticoag_whatsoever == 0), table(n_recorded_no, useNA = "always"))
+
+# cat("\n\nAny A/C whatsoever")
+# table(df4$any_during_anticoag_whatsoever, useNA = "always")
+# 
+# # length(date_vars)
+# # with(df4, table(n_missing_anticoag_dates))
+# 
+# cat("\n\nAmong people taking A/C whatsoever, number of missing dates (10 dates total)\n")
+# with(df4 %>% filter(any_during_anticoag_whatsoever == 1), table(n_missing_anticoag_dates))
+
+
+cat("\n\nAmong people with at least 1 recorded A/C, the number of non-missing A/C values (among 9 variables)\n")
+# NOTE: this table includes several '0' non-missing A/C values
+# this is because more A/C variables are used in the construction of 'any_during_anticoag_whatsoever' variable than
+# those listed above. the ones listed above are only those with corresponding dates. please see lines 123 to 128 here:
+# https://github.com/rsoren/aha_covid_dataprep_specs/blob/main/02_create_new_variables.csv
+with(df4 %>% filter(any_during_anticoag_whatsoever == 1), table(n_nonmissing_anticoag_values))
+
+
+```
+
+
+#### 2. Other missingness questions
+
+```{r}
+cat("\n\nFor those that had any missing anticoagulation (OR yes but a missing date), how many of the anticoagulation fields were missing?\n\n")
+
+
+
+for (var in anticoag_vars) {
+  newvar_name <- paste0(var, "__yes_butnodate")
+  df4[newvar_name] <-  df4[, var] %in% 1 & is.na(df4[, paste0(var, "_date")])
+}
+newvar_names <- names(df4)[grepl("__yes_butnodate", names(df4))]
+
+sapply(newvar_names, function(x) table(df4[, x]), simplify = FALSE)
+
+df4$n_yes_anticoag_but_missing_date <- apply(X = df4[, newvar_names], MARGIN = 1, FUN = function(x) {
+  sum(x, na.rm = TRUE)
+})
+
+table(df4$n_missing_anticoag_values)
+table(df4$n_yes_anticoag_but_missing_date)
+table(df4$n_yes_anticoag_but_missing_date, df4$n_missing_anticoag_values)
+
+# include only those with at least 1 missing anticoagulation OR at least 1 reported-anticoagulation-but-no-date
+dfe1 <- df4 %>%
+  filter(n_missing_anticoag_values > 0 | n_yes_anticoag_but_missing_date > 0) 
+
+table(dfe1$n_missing_anticoag_values)
+
+
+
+cat("For those that had any missing health events (OR yes but a missing date), how many health event fields were missing?")
+
+for (include_limb_ischemia in c(TRUE, FALSE)) {
+  
+  if (include_limb_ischemia) {
+    exclude_vars <- c("PATMANICU")
+    cat("\n\n\nINCLUDING LIMB ISCHEMIA\n")
+  } else {
+    exclude_vars <- c("PATMANICU", "ACUTLMBISCH")
+    cat("\n\n\nEXCLUDING LIMB ISCHEMIA\n")
+  }
+  
+  df_healthvars <- df_table3_vars %>%
+    filter(is.na(nc_level)) %>% # filtering on missing NC level because those happen to correspond to health events (except the ICU variable)
+    filter(!variable_name %in% exclude_vars)
+  
+  healthvar_names <- character(nrow(df_healthvars))
+  for (i in 1:nrow(df_healthvars)) {
+    if (0) {
+      i <- 1
+    }
+    var_tmp <- df_healthvars[i, "variable_name"]
+    datevar_tmp <- df_healthvars[i, "date_var"]
+    newvar_name <- paste0(var_tmp, "__yes_butnodate")
+    df4[newvar_name] <-  df4[, var_tmp] %in% 1 & is.na(df4[, datevar_tmp])
+    healthvar_names[i] <- newvar_name
+  }
+  
+  df4$n_yes_healthevent_but_missing_date <- apply(X = df4[, healthvar_names], MARGIN = 1, FUN = function(x) {
+    sum(x, na.rm = TRUE)
+  })
+  
+  df4$n_missing_healthevents <- apply(df4[, df_healthvars$variable_name], 1, function(x) {
+    sum(is.na(x))
+  })
+  
+  cat("\n\nloop through all health events, summary stats\n")
+  print(sapply(df_healthvars$variable_name, function(x) table(df4[, x], useNA = "always"), simplify = FALSE))
+  
+  cat("\n\nTables of missing health events; yes but missing data; and a cross-table of the two\n")
+  print(table(df4$n_missing_healthevents))
+  print(table(df4$n_yes_healthevent_but_missing_date))
+  print(table(df4$n_yes_healthevent_but_missing_date, df4$n_missing_healthevents))
+  
+  dfe2 <- df4 %>%
+    filter(n_missing_healthevents > 0 | n_yes_healthevent_but_missing_date > 0)
+  
+  cat("\n\nNumber of missing health events, among those with at least 1 missing OR yes-but-missing-date\n")
+  print(table(dfe2$n_missing_healthevents, useNA = "always"))
+  
+}
+# May need to look at this with and without acute limb ischemia as a health event to get a sense of the degree of overlap
+
+
+```
+
+#### 3. Misc.
+
+```{r echo=TRUE, message=FALSE}
+
+
+# how many people are on low dose DOAC
+table(df4$during_anticoag_dvt_type)
+
+# dfe <- df4 %>%
+#   filter(during_anticoag_dvt_type == "Low Dose DOAC") %>%
+#   .[, c("ADMDT", date_vars)]
+
+
+```
+
+
+
+
+
+
+### All variables before/after applying exclusion criteria
+
+```{r echo=FALSE, message=FALSE}
+
+iter_vars <- unique(df_vars$new_var)
+iter_vars2 <- iter_vars[!iter_vars %in% ""]
+
+# for (var_tmp in iter_vars2) {
+for (var_tmp in c(iter_vars2, unique(df_newvars$new_variable_name))) {
+  if (FALSE) {
+    # var_tmp <- "during_doac"
+    var_tmp <- "existing_afib"
+  }
+  
+  if (var_tmp %in% iter_vars2) {
+    try({
+      
+      df_tmp <- filter(df_vars, new_var == var_tmp)
+      
+      orig_tmp <- df_tmp[1, "orig_var"]
+      # cat("\n\n\n\n", var_tmp, "\n\n")
+      
+      if (df_tmp[1, "type"] %in% c("Binary", "Categorical", "Unit label")) {
+        cat("\n\nOriginal variable, pre-exclusion:", df_tmp[1, "orig_var"])
+        print(table(df1[, orig_tmp], useNA = "always"))
+        
+        cat("\n\nAnalytic variable, pre-exclusion")
+        print(table(df4_tmp[, var_tmp], useNA = "always"))
+        
+        cat("\n\nAnalytic variable, post-exclusion")
+        print(table(df4[, var_tmp], useNA = "always"))
+      }
+      
+      if (df_tmp[1, "type"] %in% c("Continuous", "Integer")) {
+        cat("\n\nOriginal variable, pre-exclusion:", df_tmp[1, "orig_var"])
+        hist(df1[, orig_tmp], breaks = 30, main = df_tmp[1, "orig_var"])
+        
+        cat("\n\nAnalytic variable, pre-exclusion")
+        hist(df4_tmp[, var_tmp], breaks = 30, main = paste0(var_tmp, ", pre-exclusion"))
+        
+        cat("\n\nAnalytic variable, post-exclusion")
+        hist(df4[, var_tmp], breaks = 30, main = paste0(var_tmp, ", post-exclusion"))
+      }
+      
+      if (df_tmp[1, "type"] %in% c("Date")) {
+        cat("\n\nOriginal variable, pre-exclusion:", df_tmp[1, "orig_var"])
+        hist(df1[, orig_tmp], breaks = 30, main = df_tmp[1, "orig_var"])
+        
+        cat("\n\nAnalytic variable, pre-exclusion")
+        hist(df4_tmp[, var_tmp], breaks = 30, main = paste0(var_tmp, ", pre-exclusion"))
+        
+        cat("\n\nAnalytic variable, post-exclusion")
+        hist(df4[, var_tmp], breaks = 30, main = paste0(var_tmp, ", post-exclusion"))
+      }
+      
+    })
+    
+  } else {
+      
+    try({
+      
+      df_tmp <- filter(df_newvars, new_variable_name == var_tmp)
+
+      cat("\n\n\n\n", var_tmp, "\n\n")
+
+      if (df_tmp[1, "type"] %in% c("Binary", "Categorical", "Unit label")) {
+        cat("\n\nAnalytic variable, pre-exclusion")
+        print(table(df4_tmp[, var_tmp], useNA = "always"))
+
+        cat("\n\nAnalytic variable, post-exclusion")
+        print(table(df4[, var_tmp], useNA = "always"))
+      }
+
+      if (df_tmp[1, "type"] %in% c("Continuous", "Integer")) {
+
+        cat("\n\nAnalytic variable, pre-exclusion")
+        hist(df4_tmp[, var_tmp], breaks = 30, main = paste0(var_tmp, ", pre-exclusion"))
+
+        cat("\n\nAnalytic variable, post-exclusion")
+        hist(df4[, var_tmp], breaks = 30, main = paste0(var_tmp, ", post-exclusion"))
+      }
+
+      if (df_tmp[1, "type"] %in% c("Date")) {
+
+        cat("\n\nAnalytic variable, pre-exclusion")
+        hist(df4_tmp[, var_tmp], breaks = 30, main = paste0(var_tmp, ", pre-exclusion"))
+
+        cat("\n\nAnalytic variable, post-exclusion")
+        hist(df4[, var_tmp], breaks = 30, main = paste0(var_tmp, ", post-exclusion"))
+      }
+      
+    })
+  }
+  
+}
+
+
+
+```
