@@ -195,10 +195,15 @@ make_table_cont <- function(dat, df_labels, type_variable, group_var) {
 
 make_table_binary <- function(dat, df_labels, type_variable, group_var) {
   if (FALSE) {
-    dat <- df4
-    df_labels <- df_tmp
-    type_variable <- "type2"
-    group_var <- "highest_dose_beforeicu"
+    # dat <- df4
+    # df_labels <- df_tmp
+    # type_variable <- "type2"
+    # group_var <- "highest_dose_beforeicu"
+    
+    dat = dat
+    df_labels = df_labels
+    type_variable = type_variable
+    group_var = group_var
   }
   
   df_labels_cat <- df_labels %>%
@@ -207,7 +212,7 @@ make_table_binary <- function(dat, df_labels, type_variable, group_var) {
   
   dat_cat <- lapply(1:nrow(df_labels_cat), function(i) {
     if (FALSE) {
-      i <- 1
+      i <- 3
     }
     varname_i <- df_labels_cat[i, "variable_name"]
     dat_tmp <- as.data.frame(dat)
@@ -216,6 +221,7 @@ make_table_binary <- function(dat, df_labels, type_variable, group_var) {
       group_by(eval(parse(text = group_var))) %>%
       # filter(highest_dose_beforeicu == "Full") %>%
       summarize(
+        # n_nonmissing = n() - sum(is.na(vartmp) | vartmp == "Not applicable but not missing"),
         n_nonmissing = n() - sum(is.na(vartmp)),
         n_total = n(),
         prop_among_all = sum(vartmp == 1, na.rm = TRUE) / n_total,
@@ -348,10 +354,16 @@ anticoag_table_continuous <- function(dat, df_labels, type_variable, group_var) 
 
 anticoag_table_binary <- function(dat, df_labels, type_variable, group_var, nonmissing_denom = FALSE) {
   if (0) {
-    dat = df4
+    # dat = df4
+    # df_labels = df_tmp
+    # type_variable = "type2"
+    # group_var = "highest_dose_beforehe"
+    # nonmissing_denom = FALSE
+    
+    dat = df4 %>% filter(admission_date >= as_date("2020-08-01"))
     df_labels = df_tmp
     type_variable = "type2"
-    group_var = "highest_dose_beforeicu"
+    group_var = "highest_dose_general"
     nonmissing_denom = FALSE
   }
   
